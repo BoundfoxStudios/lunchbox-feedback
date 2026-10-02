@@ -1,0 +1,178 @@
+<main
+  class="relative mx-auto min-h-dvh max-w-md overflow-x-clip bg-paper bg-ruled pb-safe-b shadow-xl"
+>
+  <span
+    aria-hidden="true"
+    class="absolute left-3 top-36 size-3.5 rounded-full bg-desk shadow-inner"
+  ></span>
+  <span
+    aria-hidden="true"
+    class="absolute left-3 top-96 size-3.5 rounded-full bg-desk shadow-inner"
+  ></span>
+  <div class="pt-safe-t">
+    <header class="pt-8 pr-4 pl-14">
+      <p class="text-xs font-bold uppercase leading-none tracking-widest text-plum-700">
+        {{ today }}
+      </p>
+      <h1 class="mt-2 text-4xl font-bold leading-none text-plum-900">Zeugnis</h1>
+      <p class="mt-1 text-base leading-snug text-plum-600">für die heutige Lunchbox · Koch: Manu</p>
+      <div class="mt-3.5 flex min-h-20 items-center justify-between gap-3">
+        <p
+          class="origin-left -rotate-2 font-hand text-2xl font-semibold leading-none text-marker-500"
+        >
+          {{ teacherName ? 'Liebe ' + teacherName + ', bitte benoten!' : 'Bitte benoten!' }}
+        </p>
+        @if (allRated()) {
+          <div
+            class="flex shrink-0 rotate-12 flex-col items-center gap-0.5 animate-stamp motion-reduce:animate-none"
+          >
+            <div class="relative size-20 rounded-full bg-white shadow-md">
+              <app-sunflower
+                variant="sticker"
+                class="absolute left-2 top-2 size-32 origin-top-left scale-50"
+              />
+            </div>
+            <p
+              class="whitespace-nowrap font-hand text-lg font-semibold leading-none text-marker-500"
+            >
+              Sticker verdient!
+            </p>
+          </div>
+        }
+      </div>
+    </header>
+
+    <form [formRoot]="reportCardForm">
+      <section class="mt-5 mr-4 ml-14">
+        <div class="rounded-sm border-2 border-plum-900 bg-white/75">
+          <div
+            class="flex justify-between border-b-2 border-plum-900 px-2.5 py-2 text-xs font-bold uppercase leading-none tracking-widest text-plum-900"
+          >
+            <span>Fach</span><span>Note</span>
+          </div>
+          @for (subject of subjects; track subject.id) {
+            @let gradeField = reportCardForm.grades[subject.id];
+            @let labelId = subject.id + '-label';
+            <div class="border-b border-plum-900/20 px-2 pt-3 pb-3.5">
+              <div class="flex items-baseline justify-between gap-2.5 px-0.5">
+                <span [id]="labelId" class="text-lg font-bold leading-tight text-ink">{{
+                  subject.label
+                }}</span>
+                @if (gradeField().value(); as grade) {
+                  <span
+                    class="-rotate-3 whitespace-nowrap font-hand text-2xl font-semibold leading-none text-marker-500"
+                    >{{ gradeWords[grade] }}</span
+                  >
+                } @else {
+                  <span class="text-right text-sm leading-tight text-plum-500">{{
+                    subject.hint
+                  }}</span>
+                }
+              </div>
+              <app-grade-stamps
+                [formField]="gradeField"
+                [labelledBy]="labelId"
+                (stamped)="nudgeVisible.set(false)"
+                class="mt-2.5"
+              />
+            </div>
+          }
+          <div class="flex items-center justify-between gap-2.5 bg-lilac-100 px-3 py-2.5">
+            <span class="text-sm font-bold uppercase leading-none tracking-wider text-plum-900"
+              >Gesamtnote</span
+            >
+            <span class="flex items-baseline gap-2.5">
+              <span class="font-hand text-xl font-semibold leading-none text-marker-500">{{
+                averageWord()
+              }}</span>
+              <span class="font-hand text-4xl font-bold leading-none text-marker-500">{{
+                averageText()
+              }}</span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid gap-5 pt-6 pr-4 pl-14">
+        <label class="grid gap-1">
+          <span class="text-base font-bold leading-tight text-plum-900">Wunschzettel</span>
+          <span class="text-sm leading-snug text-plum-500">Was soll demnächst in die Box?</span>
+          <textarea
+            [formField]="reportCardForm.wishes"
+            rows="3"
+            placeholder="z. B. mal wieder Falafel …"
+            class="mt-1.5 w-full resize-none rounded-none border-0 border-b-2 border-plum-700 bg-lines bg-local px-1 font-hand text-2xl font-semibold leading-8 text-plum-900 placeholder:text-plum-900/50 focus:border-marker-500 focus:outline-none"
+          ></textarea>
+        </label>
+        <label class="grid gap-1">
+          <span class="text-base font-bold leading-tight text-plum-900">Nachricht an den Koch</span>
+          <span class="text-sm leading-snug text-plum-500"
+            >Lob, Kritik, Liebesbrief – alles erlaubt.</span
+          >
+          <textarea
+            [formField]="reportCardForm.message"
+            rows="3"
+            placeholder="Lieber Manu, …"
+            class="mt-1.5 w-full resize-none rounded-none border-0 border-b-2 border-plum-700 bg-lines bg-local px-1 font-hand text-2xl font-semibold leading-8 text-plum-900 placeholder:text-plum-900/50 focus:border-marker-500 focus:outline-none"
+          ></textarea>
+        </label>
+      </section>
+
+      <section class="relative pt-6 pr-4 pl-14">
+        <app-photo-polaroid [formField]="reportCardForm.photo" />
+      </section>
+
+      <section class="pt-7 pr-4 pb-9 pl-14">
+        @if (status() === 'sent') {
+          <div class="py-1 text-center">
+            <h2
+              #sentHeading
+              tabindex="-1"
+              class="text-3xl font-bold leading-tight text-plum-900 outline-none"
+            >
+              Abgegeben!
+            </h2>
+            <p class="mt-2.5 text-base leading-snug text-pretty text-plum-600">
+              Danke{{ teacherName ? ', ' + teacherName : '' }} – Manu liest es sich in der Pause
+              durch.
+            </p>
+            @if (teacherName) {
+              <div class="relative mx-auto mt-6 h-9 w-48 border-b-2 border-plum-900">
+                <p
+                  class="absolute inset-x-0 bottom-0.5 -rotate-3 font-hand text-4xl font-semibold leading-none text-marker-500"
+                >
+                  {{ teacherName }}
+                </p>
+              </div>
+              <p class="mt-1.5 text-xs uppercase leading-none tracking-widest text-plum-500">
+                Unterschrift der Lehrerin
+              </p>
+            }
+          </div>
+        } @else {
+          <button
+            type="submit"
+            [disabled]="reportCardForm().submitting()"
+            class="w-full cursor-pointer rounded-lg border-0 bg-plum-900 p-4 text-lg font-bold leading-tight text-white shadow-lg shadow-plum-900/25 transition-transform duration-100 active:scale-95"
+          >
+            {{ reportCardForm().submitting() ? 'Wird abgegeben …' : 'Zeugnis abgeben' }}
+          </button>
+          <div aria-live="polite">
+            @if (nudgeVisible()) {
+              <p
+                class="mt-3 text-center font-hand text-xl font-semibold leading-tight text-marker-500"
+              >
+                Bitte erst alle drei Fächer benoten!
+              </p>
+            }
+            @if (status() === 'failed') {
+              <p class="mt-3 text-center text-sm leading-snug text-marker-500">
+                Hat nicht geklappt – bitte noch mal versuchen.
+              </p>
+            }
+          </div>
+        }
+      </section>
+    </form>
+  </div>
+</main>

@@ -1,0 +1,105 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      # The packageManager field would enable the npm cache by default; this job holds the App
+      # token, so the cache stays off to rule out cache poisoning.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm test -- --watch=false
+      - run: npm run build
+      # Minted only after the build, so the dependency code that npm ci, the tests and the build run
+      # never finds the token on disk.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.BFS_APP_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BFS_APP_BOT_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Publish to the deployment branch
+        id: publish
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh auth setup-git
+          user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          # The orphan fallback covers the very first run, before the branch exists.
+          if git fetch --depth 1 origin deployment/production; then
+            git worktree add published -B deployment/production FETCH_HEAD
+          else
+            git worktree add --orphan -b deployment/production published
+          fi
+          # Replacing the contents outright rather than syncing them: rsync's quick check compares
+          # size and mtime, so an edit that keeps the byte count within the same second is skipped.
+          find published -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp --archive dist/lunchbox-feedback/. published/
+          cp hosting/app.cjs published/app.cjs
+          git -C published add --all
+          # The marker is the tree hash of the output itself, so an unchanged build keeps its id
+          # and produces no commit.
+          build_id=$(git -C published write-tree)
+          # Plesk's document root is browser/, so the poll only reaches the marker there.
+          echo "$build_id" > published/browser/build-id.txt
+          # Passenger restarts the app once the mtime of tmp/restart.txt changes.
+          mkdir -p published/tmp
+          echo "$build_id" > published/tmp/restart.txt
+          git -C published add --all
+          if git -C published diff --cached --quiet HEAD 2>/dev/null; then
+            echo "build output unchanged, nothing to publish"
+          else
+            git -C published commit -m "chore: publish ${GITHUB_SHA}"
+            git -C published push origin deployment/production
+            echo "build-id=$build_id" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Purge the edge cache
+        if: steps.publish.outputs.build-id != ''
+        env:
+          # A secret, not a variable: the public run logs show a variable's value, but mask a secret.
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          BUILD_ID: ${{ steps.publish.outputs.build-id }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          # Plesk pulls the branch on its own schedule, so the purge has to wait for the new output
+          # to actually be served; purging earlier would pull the old pages back into the edge.
+          # A unique query string per attempt keeps Cloudflare from answering the poll from cache.
+          for attempt in $(seq 1 60); do
+            live=$(curl -fsS --max-time 10 "${PRODUCTION_URL}/build-id.txt?poll=${attempt}" || true)
+            if [ "$live" = "$BUILD_ID" ]; then
+              curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+                -H "Authorization: Bearer ${CF_API_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data '{"purge_everything":true}'
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::the origin never served build ${BUILD_ID}, the edge cache was not purged"
+          exit 1
