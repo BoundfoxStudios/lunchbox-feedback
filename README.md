@@ -4,7 +4,7 @@ A personal mobile one-pager on which the teacher grades the lunchbox of the day;
 
 ## Local development
 
-Requires Node.js 24 (see `.nvmrc`).
+Requires Node.js 26 (see `.nvmrc`).
 
 ```bash
 npm ci
@@ -49,7 +49,7 @@ An unchanged build produces no commit and triggers nothing.
 
    | Setting                      | Value                                                                                                                                                                                                             |
    | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Node.js version              | 24.x                                                                                                                                                                                                              |
+   | Node.js version              | 26.10.0                                                                                                                                                                                                           |
    | Application Root             | `/httpdocs`                                                                                                                                                                                                       |
    | Document Root                | `/httpdocs/browser`                                                                                                                                                                                               |
    | Application Startup File     | `app.cjs`                                                                                                                                                                                                         |
