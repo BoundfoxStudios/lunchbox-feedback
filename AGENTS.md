@@ -36,6 +36,7 @@ Specs under `src/server/` start with `// @vitest-environment node`, so they run 
 ## Negative knowledge
 
 - OnPush is the default change detection in Angular 22 – never set `changeDetection` (OnPush rules in older convention templates predate v22).
+- Plesk on the netcup shared hosting shows no console output of the app – Passenger writes it to the server-wide log, which the customer cannot read. Do not send anyone to the Plesk logs for app errors; a failed delivery is only visible as the 502 (which Cloudflare replaces with its own error page).
 - Angular's `DatePipe` takes no IANA zone names such as `Europe/Berlin`, only fixed offsets – use `formatBerlinDay`.
 
 ## Commands

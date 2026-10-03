@@ -61,4 +61,4 @@ An unchanged build produces no commit and triggers nothing.
 6. Add the webhook URL Plesk shows as a push webhook in the GitHub repository settings, then pull the updates once.
 7. Restart the app once.
 
-After the deployment, `<production-url>/build-id.txt` must return the content of `browser/build-id.txt` on `deployment/production`. The page itself answers 400 if `NG_ALLOWED_HOSTS` does not list the domain. Then submit one report card: it must arrive in the Discord channel. If the page shows the error state instead, the app log names the cause, for example `DISCORD_WEBHOOK_URL is not set`.
+After the deployment, `<production-url>/build-id.txt` must return the content of `browser/build-id.txt` on `deployment/production`. The page itself answers 400 if `NG_ALLOWED_HOSTS` does not list the domain. Then submit one report card: it must arrive in the Discord channel. If the page shows the error state instead, check the names and values of the environment variables first: the app reads `DISCORD_WEBHOOK_URL` only on submission, so a misspelled name breaks nothing but submissions. Plesk does not show the app's console output, so the logs there give no cause.
